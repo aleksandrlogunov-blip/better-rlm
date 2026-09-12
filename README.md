@@ -835,6 +835,53 @@ Registering with Claude Code, in JSON (`~/.claude.json` → `mcpServers`):
 A single user-scoped registration surfaces in both the CLI and the desktop app. To pin the mode at
 registration without editing files, add `-e RLM_MODE=claude-cli` (or `api`) to `claude mcp add`.
 
+### Operator TUI — configure provider / model / mode from the CLI
+
+The MCP server runs unattended, but configuring it (switching provider,
+changing the root model, comparing `claude-cli` vs `api`) used to mean
+hand-editing `config.yaml`. The bundled TUI is a thin Python REPL that
+offers that same surface via slash commands — no extra dependency (it's
+`rich.prompt`, already a dep) and no extra process (it's just
+`python -m src.cli`).
+
+Launch it from the checkout root:
+
+```bash
+./run_tui.sh                                # interactive
+./run_tui.sh --one-shot /status             # one command, exit (CI-friendly)
+./run_tui.sh --one-shot /mode-help          # show the host/proxy comparison
+```
+
+Slash commands exposed by the TUI:
+
+| Command | Effect |
+|---|---|
+| `/help` | list every command |
+| `/status` | show current mode / provider / model / cli login state |
+| `/mode-help` | side-by-side comparison of `auto` vs `claude-cli` vs `api` (host/proxy terminology from cline-2's mode picker) |
+| `/mode` | open the mode picker; writes `mode:` back to `config.yaml` |
+| `/provider` | open the provider picker (anthropic / gemini / openai / azure_openai / portkey) |
+| `/model`, `/override`, `/sub` | open the corresponding model picker (curated list + custom id) |
+| `/test` | run `uv run --extra dev pytest -q` — the same gate the pre-push hook runs |
+| `/test-config` | focused pytest on `tests/test_config.py`, `tests/test_auth.py`, `tests/test_transport.py` |
+| `/auth-probe` | send one tiny sub-model call to verify the auth path is live |
+| `/quit` (or `/exit`) | exit |
+
+Same "proxy" vs "host" terminology as
+[cline-2's mode picker][cline-mode-picker]: `claude-cli` is the
+**proxy** path (spawns the `claude` CLI binary, reuses your existing
+Claude Code login), `api` is the **host** path (talks to the model
+endpoint directly, requires an API key). `auto` is the "pick the best
+one at launch" option that prefers the proxy and falls back to the
+host path.
+
+The picker writes changes back to `config.yaml` (not `.env` — `.env`
+is still the installer's territory, see `install.sh --auth`). A running
+MCP server holds `src/` from startup, so a picker write is not live
+until the server reconnects — `/status` reminds you when this matters.
+
+[cline-mode-picker]: https://github.com/cline/cline/blob/main/cli/src/tui/components/dialogs/mode-picker.tsx
+
 ---
 
 ## Troubleshooting
